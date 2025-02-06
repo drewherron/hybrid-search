@@ -48,16 +48,43 @@ def preprocess_corpus(corpus):
 
 def build_lexical_index(corpus):
     """
-    Builds a lexical index (e.g., BM25) over the corpus data.
+    Builds a lexical index (e.g., BM25) over the corpus data using Whoosh.
+    This version creates a temporary on-disk index.
 
     Args:
         corpus (Corpus): The preprocessed Convokit corpus.
 
     Returns:
-        Any: A lexical index structure for retrieval (e.g., Whoosh index, custom Python object, etc.).
+        (Index): A Whoosh Index object for retrieval.
     """
-    pass
+    # Define a schema for Whoosh. StemmingAnalyzer helps with basic normalization.
+    schema = Schema(
+        doc_id=ID(stored=True, unique=True),
+        text=TEXT(analyzer=StemmingAnalyzer(), stored=False)
+    )
 
+    # Create a temporary directory to store the index files
+    temp_dir = tempfile.mkdtemp(prefix="whoosh_index_")
+
+    # Create index in this directory
+    ix = index.create_in(temp_dir, schema)
+
+    # Open a writer to add documents
+    writer = ix.writer()
+
+    for utt in corpus.iter_utterances():
+        # We might use the utterance's id or some custom unique ID?
+        doc_id = str(utt.id)
+        doc_text = utt.text or ""
+
+        # Add the document to the index
+        writer.add_document(doc_id=doc_id, text=doc_text)
+
+    # Commit the changes
+    writer.commit()
+
+    # Return the Whoosh index
+    return ix
 
 def build_semantic_index(corpus):
     """
