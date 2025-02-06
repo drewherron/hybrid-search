@@ -26,14 +26,25 @@ def preprocess_corpus(corpus):
     """
     Performs text cleaning or preprocessing on the corpus.
 
+    We could add other steps like stopword removal, lemmatization, or emoji handling.
+
     Args:
         corpus (Corpus): The Convokit corpus to preprocess.
 
     Returns:
         Corpus: The preprocessed corpus (could be the same corpus modified in place).
     """
-    pass
+    for utt in corpus.iter_utterances():
+        # Convert to lowercase
+        cleaned_text = utt.text.lower()
 
+        # Remove punctuation (for now this keeps alphanumeric and spaces only)
+        cleaned_text = re.sub(r'[^\w\s]', '', cleaned_text)
+
+        # Assign the cleaned text back to the utterance
+        utt.text = cleaned_text
+
+    return corpus
 
 def build_lexical_index(corpus):
     """
