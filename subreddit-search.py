@@ -5,13 +5,16 @@ Hybrid Lexical + Semantic Search for a Subreddit Corpus.
 Usage:
     python search_reddit.py --subreddit subreddit-NameHere
 """
+import os
 import shutil
 import argparse
 import tempfile
+import numpy as np
 from convokit import Corpus, download
 from whoosh.fields import Schema, TEXT, ID
 from whoosh.analysis import StemmingAnalyzer
 from whoosh import index
+from sentence_transformers import SentenceTransformer
 
 def load_subreddit_corpus(subreddit_name: str):
     """
@@ -185,7 +188,40 @@ def main():
        - Display results.
     7. Exit when the user types an exit command.
     """
-    pass
+    parser = argparse.ArgumentParser(description="Hybrid Lexical + Semantic Search for a Subreddit Corpus.")
+    parser.add_argument("--subreddit", type=str, help="Name of the subreddit corpus (e.g. 'subreddit-Cornell').")
+    args = parser.parse_args()
+
+    # 1. Determine the subreddit name. If blank, prompt.
+    subreddit_name = args.subreddit
+    if not subreddit_name:
+        subreddit_name = input("Enter the subreddit corpus name (e.g., 'subreddit-Cornell'): ").strip()
+
+    # 2. Load the corpus
+    corpus = load_subreddit_corpus(subreddit_name)
+
+    # 3. Preprocess
+    preprocess_corpus(corpus)
+
+    # 4. Build indices
+    lex_index = build_lexical_index(corpus)
+    sem_index = build_semantic_index(corpus)
+
+    # 5. Query loop
+    while True:
+        query = input("\nEnter your search query (or type 'exit' to quit): ").strip()
+        if query.lower() == "exit":
+            print("Exiting search...")
+            break
+
+        # Retrieve lexical results
+        candidate_docs = retrieve_lexical(lex_index, query)
+
+        # Re-rank results
+        reranked_docs = rerank_semantic(sem_index, candidate_docs, query)
+
+        # Display results
+        display_results(reranked_docs)
 
 if __name__ == "__main__":
     main()
