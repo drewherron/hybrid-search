@@ -5,9 +5,13 @@ Hybrid Lexical + Semantic Search for a Subreddit Corpus.
 Usage:
     python search_reddit.py --subreddit subreddit-NameHere
 """
+import shutil
 import argparse
-
+import tempfile
 from convokit import Corpus, download
+from whoosh.fields import Schema, TEXT, ID
+from whoosh.analysis import StemmingAnalyzer
+from whoosh import index
 
 def load_subreddit_corpus(subreddit_name: str):
     """
