@@ -93,15 +93,41 @@ def build_lexical_index(corpus):
 def build_semantic_index(corpus):
     """
     Builds a semantic embedding index using a transformer-based model (e.g., Sentence-BERT).
+    Stores embeddings in memory for now.
 
     Args:
         corpus (Corpus): The preprocessed Convokit corpus.
 
     Returns:
-        Any: A semantic index or embedding store for retrieval and re-ranking.
+        dict: A dictionary with:
+            - 'model': The SentenceTransformer model.
+            - 'embeddings': A dict mapping doc_id -> embedding vector (np.array).
     """
-    pass
+    # Load a pre-trained sentence-transformers model
+    model_name = "sentence-transformers/all-MiniLM-L6-v2"
+    model = SentenceTransformer(model_name)
 
+    # Prepare a dictionary to store doc_id -> embeddings
+    embeddings_dict = {}
+
+    # Gather all texts and doc_ids
+    doc_ids = []
+    texts = []
+    for utt in corpus.iter_utterances():
+        doc_ids.append(str(utt.id))
+        texts.append(utt.text or "")
+
+    # Compute embeddings in batches for efficiency
+    all_embeddings = model.encode(texts, batch_size=32, show_progress_bar=True)
+
+    # Map doc_ids to corresponding embeddings
+    for i, doc_id in enumerate(doc_ids):
+        embeddings_dict[doc_id] = all_embeddings[i]
+
+    return {
+        "model": model,
+        "embeddings": embeddings_dict
+    }
 
 def retrieve_lexical(lex_index, query: str):
     """
