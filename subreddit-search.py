@@ -27,7 +27,10 @@ def load_subreddit_corpus(subreddit_name: str):
     Returns:
         Corpus: The loaded Convokit corpus object.
     """
-    pass
+    print(f"Downloading corpus for {subreddit_name}...")
+    corpus = download(subreddit_name)
+    print(f"Corpus loaded with {len(list(corpus.iter_utterances()))} utterances.")
+    return corpus
 
 
 def preprocess_corpus(corpus):
