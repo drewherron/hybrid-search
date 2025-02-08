@@ -6,6 +6,7 @@ Usage:
     python search_reddit.py --subreddit subreddit-NameHere
 """
 import os
+import re
 import shutil
 import argparse
 import tempfile
