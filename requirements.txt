@@ -1,0 +1,6 @@
+convokit
+whoosh
+sentence-transformers
+numpy
+argparse
+re
