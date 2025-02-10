@@ -182,7 +182,31 @@ def rerank_semantic(sem_index, candidate_docs, query: str):
     Returns:
         List[Any]: A list of documents re-ranked by semantic relevance.
     """
-    pass
+    # Get the model
+    model = sem_index["model"]
+    
+    # Get the embeddings dictionary
+    embeddings_dict = sem_index["embeddings"]
+    
+    # Generate embedding for the query
+    query_embedding = model.encode(query)
+    
+    # Calculate similarity scores for each candidate document
+    scores = []
+    for doc_id in candidate_docs:
+        if doc_id in embeddings_dict:
+            # Calculate cosine similarity
+            doc_embedding = embeddings_dict[doc_id]
+            similarity = np.dot(query_embedding, doc_embedding) / (
+                np.linalg.norm(query_embedding) * np.linalg.norm(doc_embedding)
+            )
+            scores.append((doc_id, similarity))
+    
+    # Sort documents by similarity score in descending order
+    ranked_docs = sorted(scores, key=lambda x: x[1], reverse=True)
+    
+    # Return just the document IDs in ranked order
+    return [doc_id for doc_id, _ in ranked_docs]
 
 
 def display_results(reranked_docs):
