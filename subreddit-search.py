@@ -136,18 +136,38 @@ def build_semantic_index(corpus):
         "embeddings": embeddings_dict
     }
 
-def retrieve_lexical(lex_index, query: str):
+def retrieve_lexical(lex_index, query: str, top_n=20):
     """
     Retrieves top-N documents from the lexical index for a given query.
 
     Args:
         lex_index (Any): The lexical index structure returned by build_lexical_index().
         query (str): The user's search query string.
+        top_n (int): Number of top results to retrieve.
 
     Returns:
         List[Any]: A list of candidate documents (IDs or objects) retrieved from the index.
     """
-    pass
+    from whoosh.qparser import QueryParser
+    
+    # Create a query parser for the 'text' field
+    parser = QueryParser("text", schema=lex_index.schema)
+    
+    # Parse the query string into a Whoosh Query object
+    parsed_query = parser.parse(query)
+    
+    # Search the index
+    with lex_index.searcher() as searcher:
+        results = searcher.search(parsed_query, limit=top_n)
+        
+        # Create a list to store document IDs
+        doc_ids = []
+        
+        # Extract document IDs from search results
+        for result in results:
+            doc_ids.append(result["doc_id"])
+            
+        return doc_ids
 
 
 def rerank_semantic(sem_index, candidate_docs, query: str):
