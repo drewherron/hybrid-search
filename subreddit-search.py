@@ -209,17 +209,42 @@ def rerank_semantic(sem_index, candidate_docs, query: str):
     return [doc_id for doc_id, _ in ranked_docs]
 
 
-def display_results(reranked_docs):
+def display_results(reranked_docs, corpus):
     """
     Displays the final search results to the user.
 
     Args:
         reranked_docs (List[Any]): The final list of documents after re-ranking.
+        corpus (Corpus): The Convokit corpus containing the documents.
 
     Returns:
         None
     """
-    pass
+    if not reranked_docs:
+        print("No results found.")
+        return
+    
+    print(f"\nTop {len(reranked_docs)} results:")
+    print("-" * 50)
+    
+    # Create a mapping of document IDs to utterances for quick lookup
+    id_to_utterance = {str(utt.id): utt for utt in corpus.iter_utterances()}
+    
+    for i, doc_id in enumerate(reranked_docs, 1):
+        if doc_id in id_to_utterance:
+            utterance = id_to_utterance[doc_id]
+            speaker = utterance.speaker.id if hasattr(utterance, 'speaker') else "Unknown"
+            
+            # Truncate text if it's too long
+            text = utterance.text
+            if len(text) > 200:
+                text = text[:197] + "..."
+                
+            print(f"{i}. [{speaker}]: {text}")
+            print("-" * 50)
+        else:
+            print(f"{i}. Document ID: {doc_id} (Not found in corpus)")
+            print("-" * 50)
 
 def main():
     """
