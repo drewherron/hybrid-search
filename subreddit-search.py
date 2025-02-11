@@ -294,7 +294,7 @@ def main():
         reranked_docs = rerank_semantic(sem_index, candidate_docs, query)
 
         # Display results
-        display_results(reranked_docs)
+        display_results(reranked_docs, corpus)
 
 if __name__ == "__main__":
     main()
