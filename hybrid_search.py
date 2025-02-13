@@ -3,7 +3,7 @@
 Hybrid Lexical + Semantic Search for a Subreddit Corpus.
 
 Usage:
-    python search_reddit.py --subreddit subreddit-NameHere
+    python hybrid_search.py --subreddit subreddit-NameHere
 """
 import os
 import re
