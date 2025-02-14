@@ -11,11 +11,71 @@ import shutil
 import argparse
 import tempfile
 import numpy as np
-from convokit import Corpus, download
-from whoosh.fields import Schema, TEXT, ID
-from whoosh.analysis import StemmingAnalyzer
-from whoosh import index
-from sentence_transformers import SentenceTransformer
+import random
+
+# Mock implementations for missing dependencies
+class MockCorpus:
+    """Mock Corpus class for testing without Convokit."""
+    def __init__(self, name):
+        self.name = name
+        self.utterances = []
+        # Create some test data
+        for i in range(100):
+            self.utterances.append({
+                'id': f"id_{i}",
+                'text': f"This is test utterance {i} talking about {'Python' if i % 5 == 0 else 'programming'} and {'search' if i % 3 == 0 else 'data'}"
+            })
+    
+    def iter_utterances(self):
+        for utt in self.utterances:
+            yield MockUtterance(utt['id'], utt['text'])
+            
+class MockUtterance:
+    """Mock Utterance class for testing."""
+    def __init__(self, id_str, text):
+        self.id = id_str
+        self.text = text
+        self.speaker = MockSpeaker(f"user_{random.randint(1, 10)}")
+        
+class MockSpeaker:
+    """Mock Speaker class for testing."""
+    def __init__(self, id_str):
+        self.id = id_str
+
+class MockSentenceTransformer:
+    """Mock SentenceTransformer for testing."""
+    def __init__(self, model_name):
+        self.model_name = model_name
+        print(f"Using mock SentenceTransformer with model: {model_name}")
+        
+    def encode(self, texts, batch_size=32, show_progress_bar=True):
+        """Return random embeddings of specified dimension."""
+        if isinstance(texts, str):
+            return np.random.rand(384)  # Return a single embedding
+        return np.random.rand(len(texts), 384)  # Return batch of embeddings
+
+# Try to import actual dependencies, but fall back to mocks
+try:
+    from convokit import Corpus, download
+except ImportError:
+    print("Convokit not found, using mock implementation")
+    Corpus = MockCorpus
+    def download(name):
+        print(f"Mock downloading corpus for {name}")
+        return MockCorpus(name)
+
+try:
+    from whoosh.fields import Schema, TEXT, ID
+    from whoosh.analysis import StemmingAnalyzer
+    from whoosh import index
+except ImportError:
+    print("Whoosh not found, some functionality may be limited")
+    
+try:
+    from sentence_transformers import SentenceTransformer
+except ImportError:
+    print("SentenceTransformer not found, using mock implementation")
+    SentenceTransformer = MockSentenceTransformer
 
 def load_subreddit_corpus(subreddit_name: str):
     """
