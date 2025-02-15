@@ -68,8 +68,97 @@ try:
     from whoosh.fields import Schema, TEXT, ID
     from whoosh.analysis import StemmingAnalyzer
     from whoosh import index
+    from whoosh.qparser import QueryParser
+    WHOOSH_AVAILABLE = True
 except ImportError:
-    print("Whoosh not found, some functionality may be limited")
+    print("Whoosh not found, using mock implementation")
+    WHOOSH_AVAILABLE = False
+    
+    # Mock implementations for Whoosh
+    class MockSchema:
+        def __init__(self, **fields):
+            self.fields = fields
+    
+    class MockText:
+        def __init__(self, analyzer=None, stored=True):
+            self.analyzer = analyzer
+            self.stored = stored
+    
+    class MockID:
+        def __init__(self, stored=True, unique=True):
+            self.stored = stored
+            self.unique = unique
+    
+    class MockStemmingAnalyzer:
+        pass
+    
+    class MockIndex:
+        def __init__(self, temp_dir, schema):
+            self.temp_dir = temp_dir
+            self.schema = schema
+            self.docs = []
+            
+        def writer(self):
+            return MockWriter(self)
+            
+        def searcher(self):
+            return MockSearcher(self)
+    
+    class MockWriter:
+        def __init__(self, index):
+            self.index = index
+            
+        def add_document(self, **fields):
+            self.index.docs.append(fields)
+            
+        def commit(self):
+            pass
+    
+    class MockSearcher:
+        def __init__(self, index):
+            self.index = index
+            
+        def __enter__(self):
+            return self
+            
+        def __exit__(self, exc_type, exc_val, exc_tb):
+            pass
+            
+        def search(self, query, limit=10):
+            results = []
+            pattern = query.text
+            for doc in self.index.docs:
+                if pattern.lower() in doc['text'].lower():
+                    results.append({'doc_id': doc['doc_id']})
+                    if len(results) >= limit:
+                        break
+            return results
+    
+    class MockQueryParser:
+        def __init__(self, field_name, schema):
+            self.field_name = field_name
+            self.schema = schema
+            
+        def parse(self, query_string):
+            return MockQuery(query_string)
+    
+    class MockQuery:
+        def __init__(self, text):
+            self.text = text
+    
+    # Replace Whoosh classes with mocks
+    Schema = MockSchema
+    TEXT = MockText
+    ID = MockID
+    StemmingAnalyzer = MockStemmingAnalyzer
+    
+    class index:
+        @staticmethod
+        def create_in(temp_dir, schema):
+            return MockIndex(temp_dir, schema)
+    
+    class qparser:
+        QueryParser = MockQueryParser
     
 try:
     from sentence_transformers import SentenceTransformer
