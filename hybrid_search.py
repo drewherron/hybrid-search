@@ -297,12 +297,16 @@ def retrieve_lexical(lex_index, query: str, top_n=20):
     Returns:
         List[Any]: A list of candidate documents (IDs or objects) retrieved from the index.
     """
-    from whoosh.qparser import QueryParser
+    if 'whoosh.qparser' not in globals() and not WHOOSH_AVAILABLE:
+        # Use our mock QueryParser
+        parser = qparser.QueryParser("text", schema=lex_index.schema)
+    else:
+        # Import only if needed and not already imported
+        if 'QueryParser' not in globals():
+            from whoosh.qparser import QueryParser
+        parser = QueryParser("text", schema=lex_index.schema)
     
-    # Create a query parser for the 'text' field
-    parser = QueryParser("text", schema=lex_index.schema)
-    
-    # Parse the query string into a Whoosh Query object
+    # Parse the query string into a Query object
     parsed_query = parser.parse(query)
     
     # Search the index
