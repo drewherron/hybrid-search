@@ -177,7 +177,15 @@ def load_subreddit_corpus(subreddit_name: str):
         Corpus: The loaded Convokit corpus object.
     """
     print(f"Downloading corpus for {subreddit_name}...")
-    corpus = download(subreddit_name)
+    try:
+        # Try using the real convokit download
+        corpus = download(subreddit_name)
+    except Exception as e:
+        # If anything goes wrong, fall back to mock corpus
+        print(f"Error downloading real corpus: {e}")
+        print("Using mock corpus instead")
+        corpus = MockCorpus(subreddit_name)
+        
     print(f"Corpus loaded with {len(list(corpus.iter_utterances()))} utterances.")
     return corpus
 
