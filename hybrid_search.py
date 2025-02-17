@@ -11,162 +11,17 @@ import shutil
 import argparse
 import tempfile
 import numpy as np
-import random
+from typing import Dict, List, Any, Optional
 
-# Mock implementations for missing dependencies
-class MockCorpus:
-    """Mock Corpus class for testing without Convokit."""
-    def __init__(self, name):
-        self.name = name
-        self.utterances = []
-        # Create some test data
-        for i in range(100):
-            self.utterances.append({
-                'id': f"id_{i}",
-                'text': f"This is test utterance {i} talking about {'Python' if i % 5 == 0 else 'programming'} and {'search' if i % 3 == 0 else 'data'}"
-            })
-    
-    def iter_utterances(self):
-        for utt in self.utterances:
-            yield MockUtterance(utt['id'], utt['text'])
-            
-class MockUtterance:
-    """Mock Utterance class for testing."""
-    def __init__(self, id_str, text):
-        self.id = id_str
-        self.text = text
-        self.speaker = MockSpeaker(f"user_{random.randint(1, 10)}")
-        
-class MockSpeaker:
-    """Mock Speaker class for testing."""
-    def __init__(self, id_str):
-        self.id = id_str
+# Import all required libraries
+from convokit import Corpus, download
+from whoosh.fields import Schema, TEXT, ID
+from whoosh.analysis import StemmingAnalyzer
+from whoosh import index
+from whoosh.qparser import QueryParser
+from sentence_transformers import SentenceTransformer
 
-class MockSentenceTransformer:
-    """Mock SentenceTransformer for testing."""
-    def __init__(self, model_name):
-        self.model_name = model_name
-        print(f"Using mock SentenceTransformer with model: {model_name}")
-        
-    def encode(self, texts, batch_size=32, show_progress_bar=True):
-        """Return random embeddings of specified dimension."""
-        if isinstance(texts, str):
-            return np.random.rand(384)  # Return a single embedding
-        return np.random.rand(len(texts), 384)  # Return batch of embeddings
-
-# Try to import actual dependencies, but fall back to mocks
-try:
-    from convokit import Corpus, download
-except ImportError:
-    print("Convokit not found, using mock implementation")
-    Corpus = MockCorpus
-    def download(name):
-        print(f"Mock downloading corpus for {name}")
-        return MockCorpus(name)
-
-try:
-    from whoosh.fields import Schema, TEXT, ID
-    from whoosh.analysis import StemmingAnalyzer
-    from whoosh import index
-    from whoosh.qparser import QueryParser
-    WHOOSH_AVAILABLE = True
-except ImportError:
-    print("Whoosh not found, using mock implementation")
-    WHOOSH_AVAILABLE = False
-    
-    # Mock implementations for Whoosh
-    class MockSchema:
-        def __init__(self, **fields):
-            self.fields = fields
-    
-    class MockText:
-        def __init__(self, analyzer=None, stored=True):
-            self.analyzer = analyzer
-            self.stored = stored
-    
-    class MockID:
-        def __init__(self, stored=True, unique=True):
-            self.stored = stored
-            self.unique = unique
-    
-    class MockStemmingAnalyzer:
-        pass
-    
-    class MockIndex:
-        def __init__(self, temp_dir, schema):
-            self.temp_dir = temp_dir
-            self.schema = schema
-            self.docs = []
-            
-        def writer(self):
-            return MockWriter(self)
-            
-        def searcher(self):
-            return MockSearcher(self)
-    
-    class MockWriter:
-        def __init__(self, index):
-            self.index = index
-            
-        def add_document(self, **fields):
-            self.index.docs.append(fields)
-            
-        def commit(self):
-            pass
-    
-    class MockSearcher:
-        def __init__(self, index):
-            self.index = index
-            
-        def __enter__(self):
-            return self
-            
-        def __exit__(self, exc_type, exc_val, exc_tb):
-            pass
-            
-        def search(self, query, limit=10):
-            results = []
-            pattern = query.text
-            for doc in self.index.docs:
-                if pattern.lower() in doc['text'].lower():
-                    results.append({'doc_id': doc['doc_id']})
-                    if len(results) >= limit:
-                        break
-            return results
-    
-    class MockQueryParser:
-        def __init__(self, field_name, schema):
-            self.field_name = field_name
-            self.schema = schema
-            
-        def parse(self, query_string):
-            return MockQuery(query_string)
-    
-    class MockQuery:
-        def __init__(self, text):
-            self.text = text
-    
-    # Replace Whoosh classes with mocks
-    Schema = MockSchema
-    TEXT = MockText
-    ID = MockID
-    StemmingAnalyzer = MockStemmingAnalyzer
-    
-    class index:
-        @staticmethod
-        def create_in(temp_dir, schema):
-            return MockIndex(temp_dir, schema)
-    
-    class qparser:
-        QueryParser = MockQueryParser
-    
-try:
-    from sentence_transformers import SentenceTransformer
-except ImportError:
-    print("SentenceTransformer not found, using mock implementation")
-    SentenceTransformer = MockSentenceTransformer
-
-def load_subreddit_corpus(subreddit_name: str):
+def load_subreddit_corpus(subreddit_name: str) -> Corpus:
     """
     Loads a subreddit corpus from Convokit.
 
@@ -178,23 +33,17 @@ def load_subreddit_corpus(subreddit_name: str):
     """
     print(f"Downloading corpus for {subreddit_name}...")
     try:
-        # Try using the real convokit download
         corpus = download(subreddit_name)
+        print(f"Corpus loaded with {len(list(corpus.iter_utterances()))} utterances.")
+        return corpus
     except Exception as e:
-        # If anything goes wrong, fall back to mock corpus
-        print(f"Error downloading real corpus: {e}")
-        print("Using mock corpus instead")
-        corpus = MockCorpus(subreddit_name)
-        
-    print(f"Corpus loaded with {len(list(corpus.iter_utterances()))} utterances.")
-    return corpus
+        print(f"Error downloading corpus: {e}")
+        raise RuntimeError(f"Failed to download subreddit corpus '{subreddit_name}'. Ensure the name is correct and your internet connection is working.")
 
 
-def preprocess_corpus(corpus):
+def preprocess_corpus(corpus: Corpus) -> Corpus:
     """
     Performs text cleaning or preprocessing on the corpus.
-
-    We could add other steps like stopword removal, lemmatization, or emoji handling.
 
     Args:
         corpus (Corpus): The Convokit corpus to preprocess.
@@ -202,9 +51,10 @@ def preprocess_corpus(corpus):
     Returns:
         Corpus: The preprocessed corpus (could be the same corpus modified in place).
     """
+    print("Preprocessing corpus...")
     for utt in corpus.iter_utterances():
         # Convert to lowercase
-        cleaned_text = utt.text.lower()
+        cleaned_text = utt.text.lower() if utt.text else ""
 
         # Remove punctuation (for now this keeps alphanumeric and spaces only)
         cleaned_text = re.sub(r'[^\w\s]', '', cleaned_text)
@@ -214,7 +64,8 @@ def preprocess_corpus(corpus):
 
     return corpus
 
-def build_lexical_index(corpus):
+
+def build_lexical_index(corpus: Corpus) -> Any:
     """
     Builds a lexical index (e.g., BM25) over the corpus data using Whoosh.
     This version creates a temporary on-disk index.
@@ -225,10 +76,11 @@ def build_lexical_index(corpus):
     Returns:
         (Index): A Whoosh Index object for retrieval.
     """
+    print("Building lexical index...")
     # Define a schema for Whoosh. StemmingAnalyzer helps with basic normalization.
     schema = Schema(
         doc_id=ID(stored=True, unique=True),
-        text=TEXT(analyzer=StemmingAnalyzer(), stored=False)
+        text=TEXT(analyzer=StemmingAnalyzer(), stored=True)  # Store text for display
     )
 
     # Create a temporary directory to store the index files
@@ -251,10 +103,11 @@ def build_lexical_index(corpus):
     # Commit the changes
     writer.commit()
 
-    # Return the Whoosh index
+    print(f"Lexical index built with {len(list(corpus.iter_utterances()))} documents.")
     return ix
 
-def build_semantic_index(corpus):
+
+def build_semantic_index(corpus: Corpus) -> Dict[str, Any]:
     """
     Builds a semantic embedding index using a transformer-based model (e.g., Sentence-BERT).
     Stores embeddings in memory for now.
@@ -267,6 +120,7 @@ def build_semantic_index(corpus):
             - 'model': The SentenceTransformer model.
             - 'embeddings': A dict mapping doc_id -> embedding vector (np.array).
     """
+    print("Building semantic index...")
     # Load a pre-trained sentence-transformers model
     model_name = "sentence-transformers/all-MiniLM-L6-v2"
     model = SentenceTransformer(model_name)
@@ -288,12 +142,14 @@ def build_semantic_index(corpus):
     for i, doc_id in enumerate(doc_ids):
         embeddings_dict[doc_id] = all_embeddings[i]
 
+    print(f"Semantic index built with {len(embeddings_dict)} document embeddings.")
     return {
         "model": model,
         "embeddings": embeddings_dict
     }
 
-def retrieve_lexical(lex_index, query: str, top_n=20):
+
+def retrieve_lexical(lex_index: Any, query: str, top_n: int = 50) -> List[str]:
     """
     Retrieves top-N documents from the lexical index for a given query.
 
@@ -303,20 +159,10 @@ def retrieve_lexical(lex_index, query: str, top_n=20):
         top_n (int): Number of top results to retrieve.
 
     Returns:
-        List[Any]: A list of candidate documents (IDs or objects) retrieved from the index.
+        List[str]: A list of document IDs retrieved from the index.
     """
-    # Check if we're using mock or real implementations
-    if not WHOOSH_AVAILABLE:
-        # Use our mock QueryParser from the qparser module
-        parser = qparser.QueryParser("text", schema=lex_index.schema)
-    else:
-        # Use the real QueryParser
-        try:
-            from whoosh.qparser import QueryParser
-            parser = QueryParser("text", schema=lex_index.schema)
-        except ImportError:
-            # Fallback to our mock if import fails
-            parser = qparser.QueryParser("text", schema=lex_index.schema)
+    # Use the QueryParser from whoosh
+    parser = QueryParser("text", schema=lex_index.schema)
     
     # Parse the query string into a Query object
     parsed_query = parser.parse(query)
@@ -335,17 +181,17 @@ def retrieve_lexical(lex_index, query: str, top_n=20):
         return doc_ids
 
 
-def rerank_semantic(sem_index, candidate_docs, query: str):
+def rerank_semantic(sem_index: Dict[str, Any], candidate_docs: List[str], query: str) -> List[str]:
     """
     Re-ranks candidate documents using semantic similarity.
 
     Args:
-        sem_index (Any): The semantic index or embedding store returned by build_semantic_index().
-        candidate_docs (List[Any]): Candidate documents (IDs or objects) from retrieve_lexical().
+        sem_index (Dict[str, Any]): The semantic index or embedding store returned by build_semantic_index().
+        candidate_docs (List[str]): Candidate documents (IDs) from retrieve_lexical().
         query (str): The user's search query string.
 
     Returns:
-        List[Any]: A list of documents re-ranked by semantic relevance.
+        List[str]: A list of document IDs re-ranked by semantic relevance.
     """
     # Get the model
     model = sem_index["model"]
@@ -374,23 +220,20 @@ def rerank_semantic(sem_index, candidate_docs, query: str):
     return [doc_id for doc_id, _ in ranked_docs]
 
 
-def display_results(reranked_docs, corpus):
+def display_results(reranked_docs: List[str], corpus: Corpus) -> None:
     """
     Displays the final search results to the user.
 
     Args:
-        reranked_docs (List[Any]): The final list of documents after re-ranking.
+        reranked_docs (List[str]): The final list of document IDs after re-ranking.
         corpus (Corpus): The Convokit corpus containing the documents.
-
-    Returns:
-        None
     """
     if not reranked_docs:
         print("No results found.")
         return
     
     print(f"\nTop {len(reranked_docs)} results:")
-    print("-" * 50)
+    print("-" * 80)
     
     # Create a mapping of document IDs to utterances for quick lookup
     id_to_utterance = {str(utt.id): utt for utt in corpus.iter_utterances()}
@@ -402,14 +245,16 @@ def display_results(reranked_docs, corpus):
             
             # Truncate text if it's too long
             text = utterance.text
-            if len(text) > 200:
-                text = text[:197] + "..."
+            if len(text) > 300:
+                text = text[:297] + "..."
                 
-            print(f"{i}. [{speaker}]: {text}")
-            print("-" * 50)
+            print(f"{i}. User: {speaker}")
+            print(f"   {text}")
+            print("-" * 80)
         else:
             print(f"{i}. Document ID: {doc_id} (Not found in corpus)")
-            print("-" * 50)
+            print("-" * 80)
+
 
 def main():
     """
@@ -436,40 +281,27 @@ def main():
     subreddit_name = args.subreddit
     if not subreddit_name:
         subreddit_name = input("Enter the subreddit corpus name (e.g., 'subreddit-Cornell'): ").strip()
+        if not subreddit_name.startswith("subreddit-"):
+            subreddit_name = "subreddit-" + subreddit_name
+    elif not subreddit_name.startswith("subreddit-"):
+        subreddit_name = "subreddit-" + subreddit_name
 
-    # 2. Load the corpus
-    corpus = load_subreddit_corpus(subreddit_name)
+    try:
+        # 2. Load the corpus
+        corpus = load_subreddit_corpus(subreddit_name)
 
-    # 3. Preprocess
-    preprocess_corpus(corpus)
+        # 3. Preprocess
+        preprocess_corpus(corpus)
 
-    # 4. Build indices
-    lex_index = build_lexical_index(corpus)
-    sem_index = build_semantic_index(corpus)
+        # 4. Build indices
+        lex_index = build_lexical_index(corpus)
+        sem_index = build_semantic_index(corpus)
 
-    # 5. Check if we have a query argument
-    if args.query:
-        query = args.query
-        print(f"\nRunning search for query: {query}")
-        
-        # Retrieve lexical results
-        candidate_docs = retrieve_lexical(lex_index, query)
-
-        # Re-rank results
-        reranked_docs = rerank_semantic(sem_index, candidate_docs, query)
-
-        # Display results
-        display_results(reranked_docs, corpus)
-        return
-    
-    # 6. Query loop if no query argument was provided
-    while True:
-        try:
-            query = input("\nEnter your search query (or type 'exit' to quit): ").strip()
-            if query.lower() == "exit":
-                print("Exiting search...")
-                break
-
+        # 5. Check if we have a query argument
+        if args.query:
+            query = args.query
+            print(f"\nRunning search for query: {query}")
+            
             # Retrieve lexical results
             candidate_docs = retrieve_lexical(lex_index, query)
 
@@ -478,12 +310,36 @@ def main():
 
             # Display results
             display_results(reranked_docs, corpus)
-        except EOFError:
-            print("\nInput stream closed. Exiting.")
-            break
-        except KeyboardInterrupt:
-            print("\nSearch interrupted. Exiting.")
-            break
+            return
+        
+        # 6. Query loop if no query argument was provided
+        while True:
+            try:
+                query = input("\nEnter your search query (or type 'exit' to quit): ").strip()
+                if query.lower() in ["exit", "quit", "q"]:
+                    print("Exiting search...")
+                    break
+
+                # Retrieve lexical results
+                candidate_docs = retrieve_lexical(lex_index, query)
+
+                # Re-rank results
+                reranked_docs = rerank_semantic(sem_index, candidate_docs, query)
+
+                # Display results
+                display_results(reranked_docs, corpus)
+            except EOFError:
+                print("\nInput stream closed. Exiting.")
+                break
+            except KeyboardInterrupt:
+                print("\nSearch interrupted. Exiting.")
+                break
+    except Exception as e:
+        print(f"Error: {e}")
+        print("\nIf you're having trouble downloading a subreddit corpus, try a different one like:")
+        print("  - subreddit-askscience")
+        print("  - subreddit-Cornell")
+        print("  - subreddit-politics")
 
 if __name__ == "__main__":
     main()
