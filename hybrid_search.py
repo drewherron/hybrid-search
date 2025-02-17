@@ -416,14 +416,16 @@ def main():
     3. Load the corpus from Convokit.
     4. Preprocess the corpus.
     5. Build both lexical and semantic indices.
-    6. Prompt user for queries in a loop.
+    6. If query is provided as argument, run it once and exit.
+       Otherwise, prompt user for queries in a loop.
        - Retrieve top candidates lexically.
        - Re-rank them semantically.
        - Display results.
-    7. Exit when the user types an exit command.
+    7. Exit when the user types an exit command or after single query.
     """
     parser = argparse.ArgumentParser(description="Hybrid Lexical + Semantic Search for a Subreddit Corpus.")
     parser.add_argument("--subreddit", type=str, help="Name of the subreddit corpus (e.g. 'subreddit-Cornell').")
+    parser.add_argument("--query", type=str, help="Search query to run (exits after one search when provided).")
     args = parser.parse_args()
 
     # 1. Determine the subreddit name. If blank, prompt.
@@ -441,13 +443,11 @@ def main():
     lex_index = build_lexical_index(corpus)
     sem_index = build_semantic_index(corpus)
 
-    # 5. Query loop
-    while True:
-        query = input("\nEnter your search query (or type 'exit' to quit): ").strip()
-        if query.lower() == "exit":
-            print("Exiting search...")
-            break
-
+    # 5. Check if we have a query argument
+    if args.query:
+        query = args.query
+        print(f"\nRunning search for query: {query}")
+        
         # Retrieve lexical results
         candidate_docs = retrieve_lexical(lex_index, query)
 
@@ -456,6 +456,30 @@ def main():
 
         # Display results
         display_results(reranked_docs, corpus)
+        return
+    
+    # 6. Query loop if no query argument was provided
+    while True:
+        try:
+            query = input("\nEnter your search query (or type 'exit' to quit): ").strip()
+            if query.lower() == "exit":
+                print("Exiting search...")
+                break
+
+            # Retrieve lexical results
+            candidate_docs = retrieve_lexical(lex_index, query)
+
+            # Re-rank results
+            reranked_docs = rerank_semantic(sem_index, candidate_docs, query)
+
+            # Display results
+            display_results(reranked_docs, corpus)
+        except EOFError:
+            print("\nInput stream closed. Exiting.")
+            break
+        except KeyboardInterrupt:
+            print("\nSearch interrupted. Exiting.")
+            break
 
 if __name__ == "__main__":
     main()
