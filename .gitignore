@@ -1,0 +1,29 @@
+# Python virtual environments
+venv/
+env/
+ENV/
+
+# Python cache files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Temporary files
+*.tmp
+tmp/
+
+# Whoosh index files
+whoosh_index_*/
+
+# OS specific files
+.DS_Store
+Thumbs.db
+EOF < /dev/null
