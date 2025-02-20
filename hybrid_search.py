@@ -254,7 +254,7 @@ def rerank_semantic(sem_index: Dict[str, Any], candidate_docs: List[str], query:
 
 def display_results(reranked_docs: List[str], corpus: Corpus) -> None:
     """
-    Displays the final search results to the user.
+    Displays the final search results to the user with improved formatting.
 
     Args:
         reranked_docs (List[str]): The final list of document IDs after re-ranking.
@@ -264,8 +264,20 @@ def display_results(reranked_docs: List[str], corpus: Corpus) -> None:
         print("No results found.")
         return
     
-    print(f"\nTop {len(reranked_docs)} results:")
-    print("-" * 80)
+    # Get terminal width for better formatting
+    try:
+        import shutil
+        terminal_width = shutil.get_terminal_size().columns
+    except (ImportError, AttributeError):
+        terminal_width = 80
+    
+    # Use terminal width for the separator
+    separator = "=" * terminal_width
+    subseparator = "-" * terminal_width
+    
+    print(f"\n{separator}")
+    print(f"SEARCH RESULTS: Found {len(reranked_docs)} matches")
+    print(f"{separator}")
     
     # Create a mapping of document IDs to utterances for quick lookup
     id_to_utterance = {str(utt.id): utt for utt in corpus.iter_utterances()}
@@ -273,19 +285,65 @@ def display_results(reranked_docs: List[str], corpus: Corpus) -> None:
     for i, doc_id in enumerate(reranked_docs, 1):
         if doc_id in id_to_utterance:
             utterance = id_to_utterance[doc_id]
+            
+            # Get speaker information
             speaker = utterance.speaker.id if hasattr(utterance, 'speaker') else "Unknown"
             
+            # Get conversation context if available
+            conversation_id = ""
+            if hasattr(utterance, 'root') and utterance.root is not None:
+                conversation_id = f" | Conversation: {utterance.root}"
+            
+            # Format and clean the text
+            text = utterance.text if utterance.text else ""
+            
+            # Preserve some punctuation for readability (that was removed during preprocessing)
+            # We need to access the original text if possible
+            if hasattr(utterance, 'meta') and 'original_text' in utterance.meta:
+                text = utterance.meta['original_text']
+            
             # Truncate text if it's too long
-            text = utterance.text
-            if len(text) > 300:
-                text = text[:297] + "..."
-                
-            print(f"{i}. User: {speaker}")
-            print(f"   {text}")
-            print("-" * 80)
+            if len(text) > 500:
+                text = text[:497] + "..."
+            
+            # Format the output with nice coloring if running in a capable terminal
+            try:
+                # Only attempt colors if this is likely an interactive terminal
+                if hasattr(os, 'isatty') and os.isatty(1):
+                    # Check if running on Windows or Unix-like
+                    if os.name == 'nt':  # Windows
+                        import ctypes
+                        kernel32 = ctypes.windll.kernel32
+                        kernel32.SetConsoleMode(kernel32.GetStdHandle(-11), 7)
+                    
+                    # ANSI color codes
+                    BLUE = '\033[34m'
+                    GREEN = '\033[32m'
+                    RESET = '\033[0m'
+                    
+                    print(f"{GREEN}Result {i}{RESET}")
+                    print(f"{BLUE}User:{RESET} {speaker}{conversation_id}")
+                    print(f"\n{text}\n")
+                else:
+                    # Plain text formatting for non-interactive terminals
+                    print(f"Result {i}")
+                    print(f"User: {speaker}{conversation_id}")
+                    print(f"\n{text}\n")
+            except:
+                # Fallback to plain text if any issues with color
+                print(f"Result {i}")
+                print(f"User: {speaker}{conversation_id}")
+                print(f"\n{text}\n")
+            
+            print(f"{subseparator}")
         else:
-            print(f"{i}. Document ID: {doc_id} (Not found in corpus)")
-            print("-" * 80)
+            print(f"Result {i} [Document ID: {doc_id}]")
+            print("Document not found in corpus.")
+            print(f"{subseparator}")
+    
+    # Print a footer
+    print(f"\nEnd of results. Retrieved {len(reranked_docs)} matches.")
+    print(f"{separator}\n")
 
 
 def main():
