@@ -30,15 +30,47 @@ def load_subreddit_corpus(subreddit_name: str) -> Corpus:
 
     Returns:
         Corpus: The loaded Convokit corpus object.
+    
+    Raises:
+        ValueError: If the subreddit name is invalid.
+        ConnectionError: If there's a network issue.
+        RuntimeError: For other unexpected errors during download.
     """
     print(f"Downloading corpus for {subreddit_name}...")
+    
+    # Validate the subreddit name format
+    if not subreddit_name.startswith("subreddit-"):
+        raise ValueError(f"Invalid subreddit name format: {subreddit_name}. Name should start with 'subreddit-'.")
+    
     try:
         corpus = download(subreddit_name)
-        print(f"Corpus loaded with {len(list(corpus.iter_utterances()))} utterances.")
+        utterance_count = len(list(corpus.iter_utterances()))
+        
+        # Check if we got an empty corpus
+        if utterance_count == 0:
+            raise ValueError(f"Downloaded corpus '{subreddit_name}' contains no utterances. This may indicate an invalid corpus name.")
+            
+        print(f"Corpus loaded with {utterance_count} utterances.")
         return corpus
+        
+    except ConnectionError as e:
+        print(f"Connection error when downloading corpus: {e}")
+        print("\nPlease check your internet connection and try again.")
+        raise ConnectionError(f"Network error while downloading '{subreddit_name}'. Please check your internet connection.") from e
+        
+    except ValueError as e:
+        # ValueError could be raised by ConvoKit if the corpus name doesn't exist
+        print(f"Error: {e}")
+        print("\nAvailable subreddit corpora include:")
+        print("  - subreddit-askscience")
+        print("  - subreddit-Cornell")
+        print("  - subreddit-politics")
+        print("  - subreddit-philosophy")
+        raise ValueError(f"Could not find corpus '{subreddit_name}'. Please check the name and try again.") from e
+        
     except Exception as e:
         print(f"Error downloading corpus: {e}")
-        raise RuntimeError(f"Failed to download subreddit corpus '{subreddit_name}'. Ensure the name is correct and your internet connection is working.")
+        raise RuntimeError(f"Failed to download subreddit corpus '{subreddit_name}'. Ensure the name is correct and your internet connection is working.") from e
 
 
 def preprocess_corpus(corpus: Corpus) -> Corpus:
@@ -280,9 +312,14 @@ def main():
     # 1. Determine the subreddit name. If blank, prompt.
     subreddit_name = args.subreddit
     if not subreddit_name:
-        subreddit_name = input("Enter the subreddit corpus name (e.g., 'subreddit-Cornell'): ").strip()
-        if not subreddit_name.startswith("subreddit-"):
-            subreddit_name = "subreddit-" + subreddit_name
+        try:
+            subreddit_name = input("Enter the subreddit corpus name (e.g., 'Cornell', 'askscience'): ").strip()
+            # Add 'subreddit-' prefix if not already present
+            if not subreddit_name.startswith("subreddit-"):
+                subreddit_name = "subreddit-" + subreddit_name
+        except (EOFError, KeyboardInterrupt):
+            print("\nInput interrupted. Exiting.")
+            return
     elif not subreddit_name.startswith("subreddit-"):
         subreddit_name = "subreddit-" + subreddit_name
 
@@ -305,6 +342,10 @@ def main():
             # Retrieve lexical results
             candidate_docs = retrieve_lexical(lex_index, query)
 
+            if not candidate_docs:
+                print("No lexical matches found for your query. Try a different search term.")
+                return
+                
             # Re-rank results
             reranked_docs = rerank_semantic(sem_index, candidate_docs, query)
 
@@ -313,9 +354,17 @@ def main():
             return
         
         # 6. Query loop if no query argument was provided
+        print("\n===== Subreddit Search Ready =====")
+        print(f"Corpus: {subreddit_name}")
+        print(f"Documents: {len(list(corpus.iter_utterances()))}")
+        print("==================================")
+        
         while True:
             try:
                 query = input("\nEnter your search query (or type 'exit' to quit): ").strip()
+                if not query:
+                    continue
+                    
                 if query.lower() in ["exit", "quit", "q"]:
                     print("Exiting search...")
                     break
@@ -323,6 +372,10 @@ def main():
                 # Retrieve lexical results
                 candidate_docs = retrieve_lexical(lex_index, query)
 
+                if not candidate_docs:
+                    print("No lexical matches found for your query. Try a different search term.")
+                    continue
+                    
                 # Re-rank results
                 reranked_docs = rerank_semantic(sem_index, candidate_docs, query)
 
@@ -334,6 +387,22 @@ def main():
             except KeyboardInterrupt:
                 print("\nSearch interrupted. Exiting.")
                 break
+            except Exception as e:
+                print(f"Error during search: {e}")
+                print("Please try a different query.")
+                
+    except ValueError as e:
+        print(f"Error: {e}")
+        print("\nPopular subreddit corpora you can try include:")
+        print("  - subreddit-askscience")
+        print("  - subreddit-Cornell")
+        print("  - subreddit-politics")
+        print("  - subreddit-philosophy")
+        
+    except ConnectionError as e:
+        print(f"Connection error: {e}")
+        print("\nPlease check your internet connection and try again.")
+        
     except Exception as e:
         print(f"Error: {e}")
         print("\nIf you're having trouble downloading a subreddit corpus, try a different one like:")
