@@ -1,9 +1,31 @@
 #!/usr/bin/env python3
 """
-Hybrid Lexical + Semantic Search for a Subreddit Corpus.
+Subreddit Hybrid Search - A command-line tool for searching Reddit content.
+
+This script provides a powerful hybrid search capability for Reddit data by combining:
+1. Fast lexical search (BM25 via Whoosh) to find relevant documents
+2. Semantic re-ranking (using SentenceTransformer embeddings) for better results
 
 Usage:
-    python hybrid_search.py --subreddit subreddit-NameHere
+    python hybrid_search.py --subreddit SUBREDDIT_NAME [--query SEARCH_QUERY]
+
+Examples:
+    # Interactive mode with Cornell subreddit
+    python hybrid_search.py --subreddit Cornell
+    
+    # Direct query mode (runs once and exits)
+    python hybrid_search.py --subreddit askscience --query "black holes"
+    
+    # Note: 'subreddit-' prefix is automatically added if not provided
+    
+Available Subreddits:
+    - subreddit-askscience    (r/askscience)
+    - subreddit-Cornell       (r/Cornell) 
+    - subreddit-politics      (r/politics)
+    - subreddit-philosophy    (r/philosophy)
+    # and many more provided by Convokit
+
+Note: The first run for each subreddit will download the corpus data.
 """
 import os
 import re
@@ -362,9 +384,29 @@ def main():
        - Display results.
     7. Exit when the user types an exit command or after single query.
     """
-    parser = argparse.ArgumentParser(description="Hybrid Lexical + Semantic Search for a Subreddit Corpus.")
-    parser.add_argument("--subreddit", type=str, help="Name of the subreddit corpus (e.g. 'subreddit-Cornell').")
-    parser.add_argument("--query", type=str, help="Search query to run (exits after one search when provided).")
+    parser = argparse.ArgumentParser(
+        description="Subreddit Hybrid Search - Search Reddit content with BM25 and semantic re-ranking",
+        epilog="""
+Examples:
+  python hybrid_search.py --subreddit Cornell
+  python hybrid_search.py --subreddit askscience --query "black holes"
+
+Available subreddits include: askscience, Cornell, politics, philosophy, and more.
+        """
+    )
+    
+    parser.add_argument(
+        "--subreddit", 
+        type=str, 
+        help="Name of the subreddit corpus to search (e.g., 'Cornell', 'askscience'). The 'subreddit-' prefix is added automatically if not provided."
+    )
+    
+    parser.add_argument(
+        "--query", 
+        type=str, 
+        help="Search query to run (when provided, the program will run once and exit; otherwise it enters interactive mode)."
+    )
+    
     args = parser.parse_args()
 
     # 1. Determine the subreddit name. If blank, prompt.
