@@ -43,6 +43,67 @@ from whoosh import index
 from whoosh.qparser import QueryParser
 from sentence_transformers import SentenceTransformer
 
+# Helper functions to handle different convokit API versions
+def get_utterance_ids(corpus: Corpus) -> List[str]:
+    """
+    Gets utterance IDs using the appropriate method for the convokit version.
+    
+    Args:
+        corpus (Corpus): The Convokit corpus.
+        
+    Returns:
+        List[str]: List of utterance IDs.
+    """
+    if hasattr(corpus, 'get_utterance_ids'):
+        return corpus.get_utterance_ids()
+    elif hasattr(corpus, 'iter_utterances'):
+        return [str(utt.id) for utt in corpus.iter_utterances()]
+    else:
+        raise RuntimeError("Unsupported convokit version")
+
+def get_utterance(corpus: Corpus, utt_id: str) -> Any:
+    """
+    Gets an utterance by ID using the appropriate method for the convokit version.
+    
+    Args:
+        corpus (Corpus): The Convokit corpus.
+        utt_id (str): The utterance ID.
+        
+    Returns:
+        Any: The utterance object.
+    """
+    if hasattr(corpus, 'get_utterance'):
+        return corpus.get_utterance(utt_id)
+    elif hasattr(corpus, 'iter_utterances'):
+        # Create a mapping of IDs to utterances
+        for utt in corpus.iter_utterances():
+            if str(utt.id) == utt_id:
+                return utt
+        raise KeyError(f"Utterance {utt_id} not found")
+    else:
+        raise RuntimeError("Unsupported convokit version")
+
+def get_speaker(utterance: Any) -> str:
+    """
+    Gets the speaker name from an utterance using the appropriate method for the convokit version.
+    
+    Args:
+        utterance (Any): The utterance object.
+        
+    Returns:
+        str: The speaker name.
+    """
+    if not hasattr(utterance, 'speaker'):
+        return "Unknown"
+    
+    if utterance.speaker is None:
+        return "Unknown"
+        
+    if hasattr(utterance.speaker, 'id'):
+        return utterance.speaker.id
+    
+    return str(utterance.speaker)
+
 def load_subreddit_corpus(subreddit_name: str) -> Corpus:
     """
     Loads a subreddit corpus from Convokit.
@@ -66,7 +127,13 @@ def load_subreddit_corpus(subreddit_name: str) -> Corpus:
     
     try:
         corpus = download(subreddit_name)
-        utterance_count = len(list(corpus.iter_utterances()))
+        
+        # Verify corpus has essential methods
+        try:
+            # Get utterance count safely using our version-agnostic helper
+            utterance_count = len(get_utterance_ids(corpus))
+        except RuntimeError as e:
+            raise RuntimeError(f"Downloaded corpus appears corrupted: {str(e)}")
         
         # Check if we got an empty corpus
         if utterance_count == 0:
@@ -106,7 +173,11 @@ def preprocess_corpus(corpus: Corpus) -> Corpus:
         Corpus: The preprocessed corpus (could be the same corpus modified in place).
     """
     print("Preprocessing corpus...")
-    for utt in corpus.iter_utterances():
+    
+    # Use our version-agnostic helper
+    for utt_id in get_utterance_ids(corpus):
+        utt = get_utterance(corpus, utt_id)
+        
         # Convert to lowercase
         cleaned_text = utt.text.lower() if utt.text else ""
 
@@ -146,9 +217,12 @@ def build_lexical_index(corpus: Corpus) -> Any:
     # Open a writer to add documents
     writer = ix.writer()
 
-    for utt in corpus.iter_utterances():
-        # We might use the utterance's id or some custom unique ID?
-        doc_id = str(utt.id)
+    # Use our version-agnostic helper
+    utterance_ids = get_utterance_ids(corpus)
+    for utt_id in utterance_ids:
+        utt = get_utterance(corpus, utt_id)
+        # Use the utterance's id as the document id
+        doc_id = str(utt_id)
         doc_text = utt.text or ""
 
         # Add the document to the index
@@ -157,7 +231,7 @@ def build_lexical_index(corpus: Corpus) -> Any:
     # Commit the changes
     writer.commit()
 
-    print(f"Lexical index built with {len(list(corpus.iter_utterances()))} documents.")
+    print(f"Lexical index built with {len(utterance_ids)} documents.")
     return ix
 
 
@@ -182,11 +256,14 @@ def build_semantic_index(corpus: Corpus) -> Dict[str, Any]:
     # Prepare a dictionary to store doc_id -> embeddings
     embeddings_dict = {}
 
-    # Gather all texts and doc_ids
+    # Gather all texts and doc_ids using our version-agnostic helper
     doc_ids = []
     texts = []
-    for utt in corpus.iter_utterances():
-        doc_ids.append(str(utt.id))
+    
+    utterance_ids = get_utterance_ids(corpus)
+    for utt_id in utterance_ids:
+        utt = get_utterance(corpus, utt_id)
+        doc_ids.append(str(utt_id))
         texts.append(utt.text or "")
 
     # Compute embeddings in batches for efficiency
@@ -301,15 +378,14 @@ def display_results(reranked_docs: List[str], corpus: Corpus) -> None:
     print(f"SEARCH RESULTS: Found {len(reranked_docs)} matches")
     print(f"{separator}")
     
-    # Create a mapping of document IDs to utterances for quick lookup
-    id_to_utterance = {str(utt.id): utt for utt in corpus.iter_utterances()}
-    
+    # Use our version-agnostic helper functions
     for i, doc_id in enumerate(reranked_docs, 1):
-        if doc_id in id_to_utterance:
-            utterance = id_to_utterance[doc_id]
+        try:
+            # Get the utterance by ID using our helper
+            utterance = get_utterance(corpus, doc_id)
             
-            # Get speaker information
-            speaker = utterance.speaker.id if hasattr(utterance, 'speaker') else "Unknown"
+            # Get speaker information using our helper
+            speaker = get_speaker(utterance)
             
             # Get conversation context if available
             conversation_id = ""
@@ -358,9 +434,9 @@ def display_results(reranked_docs: List[str], corpus: Corpus) -> None:
                 print(f"\n{text}\n")
             
             print(f"{subseparator}")
-        else:
+        except Exception as e:
             print(f"Result {i} [Document ID: {doc_id}]")
-            print("Document not found in corpus.")
+            print(f"Document not found in corpus: {str(e)}")
             print(f"{subseparator}")
     
     # Print a footer
