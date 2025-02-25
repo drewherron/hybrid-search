@@ -1,11 +1,10 @@
 # Core dependencies
 convokit
 whoosh
-numpy>=1.20.0
-
+numpy
 # Deep learning dependencies 
 # Note: For PyTorch, use the appropriate extra index URL:
 # CPU only: pip install torch==1.13.1 --extra-index-url https://download.pytorch.org/whl/cpu
 # CUDA 11.6: pip install torch==1.13.1 --extra-index-url https://download.pytorch.org/whl/cu116
-torch==1.13.1
-sentence-transformers==2.2.2
+torch
+sentence-transformers

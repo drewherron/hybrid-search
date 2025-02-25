@@ -2,6 +2,8 @@
 
 A command-line tool for searching Reddit content using hybrid search technology. This tool combines the speed of lexical search (BM25) with the understanding of semantic search to find the most relevant Reddit posts and comments.
 
+Right now I'm stuck on getting this to actually work. I'll try to come back to it... someday.
+
 ## Features
 
 - **Powerful Hybrid Search**: Combines traditional BM25 keyword search with semantic understanding
@@ -49,17 +51,6 @@ python hybrid_search.py --subreddit Cornell --query "computer science"
 
 **Note**: The `subreddit-` prefix is automatically added if not provided.
 
-### Available Subreddits
-
-Some popular subreddit corpora available through Convokit:
-
-- askscience
-- Cornell
-- politics
-- philosophy
-
-And many more...
-
 ## How It Works
 
 1. **Corpus Loading**: Downloads and processes a subreddit corpus via Convokit
@@ -85,7 +76,3 @@ If you encounter issues with PyTorch installation, try installing a specific ver
 
 - CPU only: `pip install torch==1.13.1 --extra-index-url https://download.pytorch.org/whl/cpu`
 - CUDA 11.6: `pip install torch==1.13.1 --extra-index-url https://download.pytorch.org/whl/cu116`
-
-## License
-
-[MIT License](LICENSE)
