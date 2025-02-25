@@ -1,6 +1,6 @@
 # Subreddit Hybrid Search
 
-A command-line tool for searching Reddit content using hybrid search technology. This tool combines the speed of lexical search (BM25) with the understanding of semantic search to find the most relevant Reddit posts and comments.
+This project is a **test** of combining a classic lexical search method (Whoosh/BM25) with a semantic re-ranker (Sentence-BERT) to improve the relevance of search results over Reddit data retrieved via [Convokit](https://convokit.cornell.edu/). Really, this is just a proof of concept to explore hybrid retrieval methods.
 
 Right now I'm stuck on getting this to actually work. I'll try to come back to it... someday.
 
